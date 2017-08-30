@@ -1,0 +1,110 @@
+---
+title: "Restaurant Profit Regression Analysis"
+author: "Abhishek Sinha"
+date: "August 30, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(ggplot2, quietly = T)
+library(plotly, quietly = T)
+library(lmtest, quietly = T)
+```
+
+## Introduction
+
+Suppose you are the CEO of a restaurant franchise and are considering different cities for opening a new outlet. The chain already has food trucks in various cities and you have data for profits and populations from cities. We would like to use this data to help us select which city to expand to next.  
+
+The attached txt file contains the dataset for our linear regression problem. The first column is the population of a city and the second column is the profit of a food truck in that city. A negative value for profit indicates a loss. The first column refers to the population size in 10,000s and the second column refers to the profit in $10,000s.
+
+
+## Load Data and View Summaries
+
+```{r loaddata}
+data <- read.csv("r-foodex-data.txt", header=F)
+names(data) <- c("Population","Profit")
+head(data)
+```
+
+
+Looking at structure and summary of data
+
+```{r}
+str(data)
+```
+
+```{r}
+summary(data)
+```
+
+## Plotting and Visualing data
+
+```{r}
+a<-summary(data$Profit)
+profit_bucket <- cut(data$Profit, breaks = c(a[1],a[2],a[4],a[5],a[6]), labels = c("1st Quarter","2nd Quarter","3rd Quarter","4th Quarter"))
+g<-ggplot(data) + aes(x = Population, y=Profit, col=profit_bucket) + geom_point(stat = "identity")
+ggplotly(g)
+```
+
+
+Looking at outliers in the data
+
+```{r}
+prof_pop <- data$Profit/data$Population
+mean_pp <- mean(prof_pop)
+sd_pp <- mean(prof_pop)
+
+outliers <- prof_pop>(mean_pp + 2*sd_pp) | prof_pop<(mean_pp - 2*sd_pp)
+```
+
+
+```{r}
+g<-ggplot(data) + aes(x = Population, y=Profit, col=outliers) + geom_point(stat = "identity")
+ggplotly(g)
+
+
+```
+
+
+## Regression - 1
+
+```{r}
+
+lm1 <- lm(Profit ~ Population, data = data)
+summ_lm1 <- summary(lm1)
+summ_lm1
+```
+
+The R-square value is `r summ_lm1$r.squared` and the adjusted R-square is `r summ_lm1$adj.r.squared`. The summary also shows hat the population is a significant variable (which is trivial in the case of single variable linear regression).  
+
+The summary also shows that Profit will increase by $11,930.30 for every population increase of 10,000.  
+
+```{r}
+g<-ggplot(data) + aes(x = Population, y=Profit) + geom_point(stat = "identity") + geom_abline(slope = 1.19303, intercept = -3.89578, col="blue")
+ggplotly(g)
+```
+
+### Diagnostic Plot
+
+```{r}
+
+par(mfrow=c(2,2))
+
+plot(lm1)
+
+```
+
+Looking at the first plot we can say that the model is linear as it is not showing any pattern. Also, heteroskedasticity is not present.
+
+From QQ plot, we can easily infer that the data is normally distributed.  
+
+
+### Test for Auto-correlation (AR(1))
+
+Durbin Watson Test
+```{r}
+dwtest(data$Profit ~ data$Population)
+```
+
+The test shows(0<DW<2, p-value is very low) that a positive autocorrelation exists in residuals from regression. Thus the our model is not a very good estimater.
